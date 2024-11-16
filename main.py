@@ -1,74 +1,107 @@
-from pyad import adgroup
 from openpyxl import Workbook
+from pathlib import Path
+from pyad import adgroup
 
 
-def get_group_members(group_name) -> list:
-    """
-    The function `get_group_members` retrieves the members of a specified Active Directory group by its
-    name.
+class Search_Active_Directory():
+    def __init__(self):
+        self.parameters_path = Path("./parameters.txt")
+
+        self.group_members = self.check_active_directory()
+
+
+    def read_groups_from_file(self) -> list[str]:
+        """
+        This Python function reads and returns a list of groups from a file specified by the
+        `parameters_path`.
+        :return: A list of strings is being returned.
+        """
+        if not self.parameters_path.exists():
+            raise FileNotFoundError("Archivo de parámetros no encontrado")
+        
+        with self.parameters_path.open('r', encoding="utf-8") as file:
+            groups = [line.strip() for line in file if line.strip()]
+            return groups
+        
     
-    :param group_name: The `get_group_members` function takes a `group_name` parameter as input, which
-    is expected to be a string representing the name of a group. The function then attempts to retrieve
-    the members of the specified group using Active Directory operations. If successful, it returns a
-    list of member common names (
-    :return: The function `get_group_members(group_name)` is returning a list of common names (cn) of
-    the members of the Active Directory group specified by `group_name`. If an error occurs during the
-    process, an empty list is returned.
-    """
-    try:
-        group = adgroup.ADGroup.from_cn(group_name)
-        members = group.get_members()
-        return [member.cn for member in members]
-    except Exception as e:
-        print(f"Se ha encontrado un error: {e}")
-        return []
+    def get_group_members(self, group_name: str) -> list[str]:
+        """
+        This function retrieves the members of a specified Active Directory group by its name.
+        
+        :param group_name: The `get_group_members` function takes a `group_name` parameter, which is a
+        string representing the name of a group. This function attempts to retrieve the members of the
+        specified group using the `adgroup.ADGroup.from_cn(group_name)` method and then returns a list
+        of member common names (`
+        :type group_name: str
+        :return: A list of strings containing the common names (cn) of the members of the specified
+        group. If an error occurs during the process, an empty list will be returned.
+        """
+        try:
+            group = adgroup.ADGroup.from_cn(group_name)
+            members = group.get_members()
+            return [member.cn for member in members]
+        except Exception as e:
+            print(f"Se ha encontrado un error: {e}")
+            return []
+        
     
+    def check_active_directory(self) -> dict[str, list[str]]:
+        """
+        The function `check_active_directory` reads group names from a file, retrieves members for each
+        group, and returns a dictionary mapping group names to their members.
+        :return: A dictionary is being returned, where the keys are group names (strings) and the values
+        are lists of group members (strings).
+        """
+        group_list = self.read_groups_from_file()
+        group_members = {}
 
-def save_to_excel(group_members: dict, output_file: str) -> None:
-    """
-    The function `save_to_excel` takes a dictionary of group members and saves the data to an Excel file
-    with each group as a column and members as rows.
+        for group_name in group_list:
+            print(f"Consultando miembros del grupo '{group_name}'")
+            members = self.get_group_members(group_name)
+            group_members[group_name] = members
+        
+        return group_members
+
+
+class Generate_Excel():
+    def __init__(self, group_members: dict[str, list[str]]):
+        self.output_file = Path("./Grupos_y_Miembros_AD.xlsx")
+
+        self.group_members = group_members
+
     
-    :param group_members: The `group_members` parameter is a dictionary where the keys represent group
-    names and the values are lists of group members belonging to each group
-    :type group_members: dict
-    :param output_file: The `output_file` parameter in the `save_to_excel` function is a string that
-    represents the file path where the Excel file will be saved. This parameter should include the file
-    name and extension (e.g., "output.xlsx") to specify the location where the Excel file will be
-    created or updated
-    :type output_file: str
-    """
-    workbook = Workbook()
-    sheet = workbook.active
-    sheet.title = "Grupos y Miembros"
+    def save_to_excel(self) -> None:
+        """
+        The `save_to_excel` function creates an Excel workbook with group and member data and saves it
+        to a specified file location.
+        """
+        workbook = Workbook()
+        
+        sheet = workbook.active        
+        sheet.title = "Grupos y Miembros AD"
 
-    headers = list(group_members.keys())
-    
-    max_members = max(len(members) for members in group_members.values())
+        headers = list(group_members.keys())
 
-    for col, group_name in enumerate(headers, start=1):
-        sheet.cell(row=1, column=col, value=group_name)
+        max_members = max(len(members) for members in group_members.values())
 
-        for row in range(max_members):
-            for col, group_name in enumerate(headers, start=1):
-                members = sorted(group_members[group_name])
+        for col, group_name in enumerate(headers, start=1):
+            sheet.cell(row=1, column=col, value=group_name)
 
-                if row < len(members):
-                    sheet.cell(row=row + 2, column=col, value=members[row])
+            for row in range(max_members):
+                for col, group_name in enumerate(headers, start=1):
+                    members = sorted(group_members[group_name])
 
-    workbook.save(output_file)
-    print(f"Datos guardados en {output_file}")
+                    if row < len(members):
+                        sheet.cell(row=row + 2, column=col, value=members[row])
+
+        workbook.save(self.output_file)
+
+        print(f"Datos guardados en '{self.output_file.absolute}'")
+
+
 
 
 if __name__ == "__main__":
-    group_list = []
+    group_members = Search_Active_Directory().group_members
 
-    group_members = {}
-
-    for group_name in group_list:
-        print(f"Consultado miembros del grupo {group_name}")
-        members = get_group_members(group_name)
-        group_members[group_name] = members
-
-    output_file = "Grupos_y_Miembros_AD.xlsx"
-    save_to_excel(group_members, output_file)
+    Generate_Excel(group_members)
