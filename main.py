@@ -2,6 +2,8 @@ from openpyxl import Workbook
 from pathlib import Path
 from pyad import adgroup
 
+from measure_run_time import measure_run_time
+
 
 class Search_Active_Directory():
     def __init__(self):
@@ -45,6 +47,7 @@ class Search_Active_Directory():
             return []
         
     
+    @measure_run_time
     def check_active_directory(self) -> dict[str, list[str]]:
         """
         The function `check_active_directory` reads group names from a file, retrieves members for each
@@ -70,6 +73,7 @@ class Generate_Excel():
         self.group_members = group_members
 
     
+    @measure_run_time
     def save_to_excel(self) -> None:
         """
         The `save_to_excel` function creates an Excel workbook with group and member data and saves it

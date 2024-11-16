@@ -1,3 +1,4 @@
 pyad==0.6.0
 pywin32==308
 openpyxl==3.1.5
+measure_run_time==0.1.0
